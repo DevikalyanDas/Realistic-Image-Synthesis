@@ -6,5 +6,5 @@ Here, in this course we learned the advanced concepts of computer graphics 1 at 
 |------------|---------|
 | <img src="imgs/PT/cornell_box_glossy_100.png" width="300" height="300">  |  <img src="imgs/PT/cornell_box_100.png" width="300" height="300"> |
 3. Next Event Estimation <br/>
-4. ![alt-text-1](imgs/PT/cornell_box_glossy_100.png "title-1") ![alt-text-2](imgs/PT/cornell_box_100.png "title-2")
+4. <img src="imgs/PT/cornell_box_glossy_100.png" width="300"/> <img src="imgs/PT/cornell_box_100.png" width="300"/> 
 5. Photon Mapping and Density Estimation <br/>
