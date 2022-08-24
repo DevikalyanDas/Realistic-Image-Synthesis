@@ -10,17 +10,13 @@ Combination of direect lighting and path tracing.
 Direct lighting:Connect to a random light sources at each hit point and collect the contributions as the ray bounces.<br/> 
 Path Tracing : Collect the throughput as ray bounces off. <br/>
 MIS(Multiple Importance sampling): Combine the NEE with path tracing more effectively as NEE converge faster for some lighting conditions.<br/>
-| Surfaces    |     NEE     |  MIS        |
-| ----------- | ----------- | ----------- |
-| Glossy(10 spp)| <img src="imgs/NEE/NEE/NEE_cornel_box_glossy_10spp.png" width="300"/>  | <img src="imgs/NEE/MIS/MIS_cornel_box_glossy_10spp.png" width="300"/> |
-<!-- | Glossy(10 spp)|
-<img src="imgs/NEE/NEE/NEE_cornel_box_glossy_10spp.png" width="300"/>      | 
-<img src="imgs/NEE/MIS/MIS_cornel_box_glossy_10spp.png" width="300"/>       |
-| Diffuse(10 spp)|<img src="imgs/NEE/NEE/NEE_cornel_box_10spp.png" width="300"/>      | <img src="imgs/NEE/MIS/MIS_cornel_box_10spp.png" width="300"/>       |
-| Water(200 spp)|<img src="imgs/NEE/NEE/NEE_cornel_box_water.png" width="300"/>      | <img src="imgs/NEE/MIS/MIS_cornel_box_water_200spp.png" width="300"/>       | -->
+
+Surfaces | NEE | MIS
+:-----: | :----: | :-----:
+Glossy(10 spp)   | <img src="imgs/NEE/NEE/NEE_cornel_box_glossy_10spp.png" width="300"/> | <img src="imgs/NEE/MIS/MIS_cornel_box_glossy_10spp.png" width="300"/>
+Diffuse(10 spp)  | <img src="imgs/NEE/NEE/NEE_cornel_box_10spp.png" width="300"/>  | <img src="imgs/NEE/MIS/MIS_cornel_box_10spp.png" width="300"/>
+Water(200 spp)   | <img src="imgs/NEE/NEE/NEE_cornel_box_water.png" width="300"/>  | <img src="imgs/NEE/MIS/MIS_cornel_box_water_200spp.png" width="300"/>
+
 
 6. Photon Mapping and Density Estimation <br/>
-Column | Column | Column
-:----- | :----: | -----:
-Left   | Center | Right
-align  | align  | align
+
