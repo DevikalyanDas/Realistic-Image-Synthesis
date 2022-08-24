@@ -1,6 +1,6 @@
 # Realistic-Image-Synthesis
 Here, in this course we learned the advanced concepts of computer graphics 1 at Saarland University. The concepts we learned are:<br\>
-1. Monte Carlo Sampling <br\>
+1. Monte Carlo Sampling <br/>
 2. Vanilla Path Tracing <br\>
 Glossy Surface            |  Diffuse Surface
 :-------------------------:|:-------------------------:
