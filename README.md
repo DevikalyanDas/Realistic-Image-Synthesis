@@ -20,7 +20,7 @@ MIS(Multiple Importance sampling): Combine the NEE with path tracing more effect
 | Water(200 spp)|<img src="imgs/NEE/NEE/NEE_cornel_box_water.png" width="300"/>      | <img src="imgs/NEE/MIS/MIS_cornel_box_water_200spp.png" width="300"/>       | -->
 
 6. Photon Mapping and Density Estimation <br/>
-| Header A       | Header B       |
-| -------------- | -------------- |
-| row 1 col 1    | row 1 col 2    |
-| row 2 column 1 | row 2 column 2 |
+Column | Column | Column
+:----- | :----: | -----:
+Left   | Center | Right
+align  | align  | align
