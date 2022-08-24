@@ -1,0 +1,375 @@
+#!markdown
+
+SUBMISSION BY: Devikalyan Das (7007352), Akshay Mundra (7011525)
+
+#!fsharp
+
+// Downloads the plotting dependency from nuget.org (see https://plotly.net)
+#r "nuget: Plotly.NET, 2.0.0-preview.17"
+#r "nuget: Plotly.NET.Interactive, 2.0.0-preview.17"
+open Plotly.NET // The F# equivalent of a C# "using" or a C++ "using namespace"
+open System.Numerics // for 2D vector arithmetic
+let rng = System.Random() // Initializes the random number generator. 
+
+#!markdown
+
+# Assignment 2: Monte Carlo integration
+
+#!markdown
+
+## 1D integral
+
+We are computing an integral
+
+$$
+I = \int_0^1 x(1-x) dx
+$$
+
+The F# code below defines the integrand and plots is using Plotly.NET
+
+For more info on the syntax, see:
+- https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/lists#creating-and-initializing-lists
+- https://docs.microsoft.com/en-us/dotnet/fsharp/language-reference/functions/#pipelines
+
+#!fsharp
+
+let integrand(x) = (1.0 - x) * (x)
+
+Chart.Line(
+    [ 0.0 .. 0.01 .. 1.0 ],
+    [ for x in 0.0 .. 0.01 .. 1.0 -> integrand(x) ]
+)
+|> Chart.withSize(400, 300) // sets the size of the chart to take less screen space
+|> Chart.withMarginSize(0, 0, 0, 0) // removes the huge default whitespace around the chart
+// |> Chart.show
+
+#!markdown
+
+The ground truth integral value can be trivially computed analytically: $I=\frac{1}{6}$
+
+#!fsharp
+
+let groundTruth = 1.0 / 6.0
+groundTruth
+
+#!markdown
+
+It can also be numerically computed. The simplest method is a Riemann sum (https://en.wikipedia.org/wiki/Riemann_sum) and shown in the code below. It uses the definition of a Riemann integral (which applies in our context as long as no Dirac deltas are involved) to approximate the integral with the sum:
+$$
+I \approx \sum_{i=1}^{n} f(x_i) \Delta x_i
+$$
+The domain is partitioned into $n$ non-overlapping bins. $\Delta x_i$ is the size of the $i$ th bin and $x_i$ is a deterministic point within that bin. The code below uses a regular subdivision and the midpoints of each bin.
+
+The Riemann integral is defined as the limit of this sum for $n\rightarrow \infty$.
+
+#!fsharp
+
+let riemannSum(n:int) =
+    let mutable result = 0.0
+    let deltaX = 1.0 / float(n) // the stepsize of the Riemann sum
+    for x in deltaX / 2.0 .. deltaX .. 1.0 do
+        result <- result + integrand(x) * deltaX
+    result
+riemannSum(1000)
+
+#!markdown
+
+## Monte Carlo integration
+For Monte Carlo integration, we need random numbers in $[0,1]$. You can generate them as follows:
+
+#!fsharp
+
+rng.NextDouble()
+
+#!markdown
+
+### 2.1. Uniform sampling (5 points)
+Your first task is to implement a Monte Carlo estimator computing the above integral with uniform samples. You can take inspiration from the Riemann sum implementation above. If your implementation is correct, the cell below should output the correct result up to at least two digits.
+
+#!fsharp
+
+let monteCarloUniform(n:int) =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)    
+    for i in 1 .. numSamples do
+        let x = rng.NextDouble()
+        result <- result + integrand(x) * numSamples_inv
+    
+    result
+    
+monteCarloUniform(1000)
+
+#!markdown
+
+### 2.2 Importance sampling (45 points)
+
+Let us now try to improve the error via importance sampling. But how to choose the density? The integrand is a product of two functions, so one option is to use either of the two factors that comprise it.
+
+We start with a PDF proportional to the first factor,
+$$
+p(x) \propto 1 - x
+$$
+
+In this exercise, you are asked to perform two tasks:
+1. Compute the exact formulation of $p(x)$. For that, you need the normalization factor that ensures that $\int_0^1 p(x) dx = 1$, i.e., the PDF is a valid density.
+2. Compute a sample transformation from uniform random numbers to the target density, using the method of CDF inversion.
+
+Implement your result in the code cell below, and add a Markdown cell with the intermediate steps of the derivation.
+
+#!markdown
+
+Let $p(x) = k * (1-x)$
+
+For it to be valid density, we want $\int_0^1 p(x) dx = 1$
+
+i.e. \
+$\int_0^1 k*(1-x) dx = 1$ \
+$k\int_0^1 (1-x) dx = 1$ \
+$k[x - x^2/2]_0^1 = 1$ \
+$k[1-1/2] = 1$ \
+$k=2$
+
+Thus, $p(x) = 2*(1-x)$
+
+#!markdown
+
+Deriving the sample transformation using CDF inversion:
+\
+$\int_0^x 2*(1-t) dt = u$ \
+$2*[t-t^2/2]_0^x = u$ \
+$2x - x^2 = u$ \
+$x^2 - 2x + u = 0$ \
+$x = (2 ± \sqrt{4-4u}) / 2$ \
+$x = 1 ± \sqrt{1-u}$ \
+Since $0≤x≤1$, $x = 1 - \sqrt{1-u}$
+
+#!fsharp
+
+let sampleFirst u = 
+    // TODO insert code here
+    let discriminant = 1.0 - u
+    let sample_first = 1.0 - Math.Sqrt(discriminant)
+    sample_first
+
+let pdfFirst x = 
+    // TODO insert code here
+    let noma_factor = 2.0
+    let pdf_norm = noma_factor * (1.0 - x)
+    pdf_norm
+
+#!markdown
+
+The code in the following cell can be used to debug your sampling method. It generates many samples and uses density estimation via a histogram to reconstruct the PDF. The result is compared to a ground truth histogram (in red). If the two lines match, your implementation is correct.
+
+#!fsharp
+
+let numBins = 10
+let histogram = [| for _ in 1..numBins -> 0.0 |]
+let num = 100000
+for i in 1..num do
+    let x = sampleFirst(rng.NextDouble())
+    let idx = int(x * float numBins)
+    histogram[idx] <- histogram[idx] + 1.0 / float(num)
+
+let binWidth = 1.0 / float(numBins)
+let refHistogram = [
+    for i in 1..numBins ->
+        let a = (float i - 1.0) * binWidth
+        let b = a + binWidth
+        2.0 * (b - a) - b**2 + a**2
+]
+
+[
+    Chart.Line([for i in 1..numBins -> float i / float numBins], histogram, ShowMarkers=true, Name="actual")
+    Chart.Line([for i in 1..numBins -> float i / float numBins], refHistogram, ShowMarkers=true, Name="reference")
+]
+|> Chart.combine |> Chart.withSize(500, 400) |> Chart.withMarginSize(0, 0, 0, 0)
+
+#!markdown
+
+Now we do the same but for the second factor
+
+$$
+p(x) \propto x
+$$
+
+Again, your task is to compute the normalization factor and implement the PDF and a corresponding sampling function.
+
+#!fsharp
+
+let sampleSecond u = 
+    // TODO insert code here
+    let sample_second = Math.Sqrt(u)
+    sample_second
+
+let pdfSecond x = 
+    // TODO insert code here
+    let noma_factor = 2.0
+    let pdf_norm = noma_factor * x
+    pdf_norm    
+
+#!markdown
+
+Let $p(x) = k * x$
+
+For it to be valid density, we want $\int_0^1 p(x) dx = 1$
+
+i.e. \
+$\int_0^1 (k*x) dx = 1$ \
+$k\int_0^1 x dx = 1$ \
+$k[x^2/2]_0^1 = 1$ \
+$k[1/2] = 1$ \
+$k=2$
+
+Thus, $p(x) = 2*x$
+
+#!markdown
+
+Deriving the sample transformation using CDF inversion:
+\
+$\int_0^x 2*t dt = u$ \
+$2*[t^2/2]_0^x = u$ \
+$x^2 = u$ \
+$x = \sqrt{u}$
+
+#!fsharp
+
+let numBins = 10
+let histogram = [| for _ in 1..numBins -> 0.0 |]
+let num = 100000
+for i in 1..num do
+    let x = sampleSecond(rng.NextDouble())
+    let idx = int (x * float numBins)
+    histogram[idx] <- histogram[idx] + 1.0 / float num
+
+let binWidth = 1.0 / float numBins
+let refHistogram = [
+    for i in 1..numBins ->
+        let a = (float i - 1.0) * binWidth
+        let b = a + binWidth
+        b**2 - a**2
+]
+
+[
+    Chart.Line([for i in 1..numBins -> float i / float numBins], histogram, ShowMarkers=true, Name="actual")
+    Chart.Line([for i in 1..numBins -> float i / float numBins], refHistogram, ShowMarkers=true, Name="reference")
+]
+|> Chart.combine |> Chart.withSize(500, 400) |> Chart.withMarginSize(0, 0, 0, 0)
+
+#!markdown
+
+Finally, we use the two pdfs to construct 3 different Monte Carlo estimators. One each by using the individual PDFs, and the MIS combination of both.
+
+Start with the estimator that takes $n$ samples from the first PDF:
+
+#!fsharp
+
+let monteCarloFirst n =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)    
+    for i in 1 .. numSamples do
+        let x = sampleFirst(rng.NextDouble())
+        result <- result + (integrand(x)/pdfFirst(x)) * numSamples_inv
+    result
+        
+monteCarloFirst 1000
+
+#!markdown
+
+Next, construct an estimator that takes $n$ samples from the second PDF:
+
+#!fsharp
+
+let monteCarloSecond n =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)    
+    for i in 1 .. numSamples do
+        let x = sampleSecond(rng.NextDouble())
+        result <- result + (integrand(x)/pdfSecond(x)) * numSamples_inv
+    result
+    
+monteCarloSecond 1000
+
+#!markdown
+
+Finally, combine both using multi-sample MIS with the balance heuristic. That is, take $n$ samples from each of the two densities.
+
+#!fsharp
+
+let monteCarloMIS(n) =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    for i in 1 .. numSamples do
+        let x_first = sampleFirst(rng.NextDouble())
+        let x_second = sampleSecond(rng.NextDouble())
+
+        let w_k_first = (pdfSecond(x_first)*float(numSamples) + pdfFirst(x_first)*float(numSamples))
+        let w_k_second = (pdfSecond(x_second)*float(numSamples) + pdfFirst(x_second)*float(numSamples))
+
+        let w_first = (pdfFirst(x_first)*float(numSamples))/w_k_first
+        let w_second = (pdfSecond(x_second)*float(numSamples))/w_k_second
+        
+        result <- result + ((integrand(x_second)/pdfSecond(x_second)) * numSamples_inv * w_second) + ((integrand(x_first)/pdfFirst(x_first)) * numSamples_inv * w_first)
+    
+    result
+
+monteCarloMIS 1000
+
+#!markdown
+
+The following code compares the variances of the four different estimators with the same total number of samples from each. The variance is estimated by repeatedly invoking the estimator, and averaging the squared errors.
+
+#!fsharp
+
+let numTrials = 100000
+let n = 4
+let mutable avgSqrUniform = 0.0
+let mutable avgSqrFirst = 0.0
+let mutable avgSqrSecond = 0.0
+let mutable avgSqrMIS = 0.0
+let mutable avgSqrRiemann = 0.0
+for _ in 1..numTrials do
+    avgSqrUniform <- avgSqrUniform + (monteCarloUniform(2 * n) - groundTruth)**2 / float(numTrials)
+    avgSqrFirst <- avgSqrFirst + (monteCarloFirst(2 * n) - groundTruth)**2 / float(numTrials)
+    avgSqrSecond <- avgSqrSecond + (monteCarloSecond(2 * n) - groundTruth)**2 / float(numTrials)
+    avgSqrMIS <- avgSqrMIS + (monteCarloMIS(n) - groundTruth)**2 / float(numTrials)
+    avgSqrRiemann <- avgSqrRiemann + (riemannSum(n) - groundTruth)**2 / float(numTrials)
+
+Chart.Column([avgSqrUniform; avgSqrFirst; avgSqrSecond; avgSqrMIS; avgSqrRiemann], ["uniform"; "first"; "second"; "MIS"; "Riemann sum"])
+|> Chart.withSize(500, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+
+#!markdown
+
+Explain the behavior you observe.
+
+#!markdown
+
+MIS with balanced heuristics performs well only when the individual variances are high (upto an additive constant). In other words, it performs poorly if some techniques have low variance. From the above graphs, we see that the variance for the two methods satisfy that criteria. Thus, the variance of the MIS approach is lower than the importance sampling on individual PDFs.
+
+We also compute the accuraciew of the three approaches below. MIS performs better than the other two.
+
+#!fsharp
+
+let numTrials = 100000
+let n = 4
+let mutable errFirst = 0.0
+let mutable errSecond = 0.0
+let mutable errMIS = 0.0
+for _ in 1..numTrials do
+    errFirst <- Math.Abs(monteCarloFirst(2 * n) - groundTruth)
+    errSecond <- Math.Abs(monteCarloSecond(2 * n) - groundTruth)
+    errMIS <- Math.Abs(monteCarloMIS(n) - groundTruth)
+
+Console.WriteLine("Accuracies:")
+Console.WriteLine("Approach1: {0}",1.0-errFirst) 
+Console.WriteLine("Approach2: {0}",1.0-errSecond)
+Console.WriteLine("MIS: {0}",1.0-errMIS)
