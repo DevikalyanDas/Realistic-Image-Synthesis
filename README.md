@@ -7,7 +7,7 @@ Here, in this course we learned the advanced concepts of computer graphics 1 at 
 | :-----------: | :-----------: |
  <img src="imgs/PT/cornell_box_glossy_100.png" width="300"/>      | <img src="imgs/PT/cornell_box_100.png" width="300"/>  
 
-3. Next Event Estimation <br/>
+3. **Next Event Estimation <br/>**
 Combination of direect lighting and path tracing.
 Direct lighting:Connect to a random light sources at each hit point and collect the contributions as the ray bounces.<br/> 
 Path Tracing : Collect the throughput as ray bounces off. <br/>
