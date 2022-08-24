@@ -1,0 +1,661 @@
+#!markdown
+
+Submistted by:
+Devikalyan Das 7007352
+Akshay Mundra 7011525
+
+#!fsharp
+
+// Downloads the plotting dependency from nuget.org (see https://plotly.net)
+#r "nuget: Plotly.NET, 2.0.0-preview.17"
+#r "nuget: Plotly.NET.Interactive, 2.0.0-preview.17"
+open Plotly.NET // The F# equivalent of a C# "using" or a C++ "using namespace"
+open System.Numerics // for 2D vector arithmetic
+
+#!fsharp
+
+let rng = System.Random()
+
+#!markdown
+
+# Assignment 3
+
+In this exercise, we compute the 2D irradiance at a point using Monte Carlo integration.
+The code cell below configures the setup and visualizes it.
+
+A point $x=(0,0)$ on a line with normal $n_x=(0,1)$ receives light from the line segment between $y_0$ and $y_1$. The emitted radiance is constant: $L_e = 1 \forall y$ and both lines are absorbing all light.
+
+Our goal is to compute the 2D equivalent of irradiance, which is given by an integral over the upper hemi-circle,
+$$
+E = \int_{\Omega^{+}} L_i(\omega) \cos\theta d\omega .
+$$
+The infinitesimal $d\omega$ are measured in radians, the 2D equivalent of a solid angle.
+
+#!fsharp
+
+let y0 = Vector2(-1.0f, 1.0f)
+let y1 = Vector2(0.1f, 2.0f)
+
+[
+    // The receiver line and point
+    Chart.Line([-1.0, 0.0; 1.0, 0.0])
+    Chart.Point([0, 0], MultiText=["x"], TextPosition=StyleParam.TextPosition.TopRight)
+
+    // Emitter
+    Chart.Line([y0.X, y0.Y; y1.X, y1.Y], ShowMarkers=true, MultiText=["y0"; "y1"], TextPosition=StyleParam.TextPosition.TopRight)
+
+    // Dashed lines to visualize the cone of incident radiance
+    Chart.Line([y0.X, y0.Y; 0.0f, 0.0f], LineDash=StyleParam.DrawingStyle.Dash, LineColor=Color.fromRGB 150 150 150)
+    Chart.Line([y1.X, y1.Y; 0.0f, 0.0f], LineDash=StyleParam.DrawingStyle.Dash, LineColor=Color.fromRGB 150 150 150)
+]
+|> Chart.combine
+|> Chart.withSize(600, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+|> Chart.withLegend false
+
+#!markdown
+
+The following code cell defines the $L_i$ function. Given a direction from $x$ (which is the origin) we test if it intersects the emitter and return 1 or 0.
+
+#!fsharp
+
+/// Ray-line intersection for our special case (ray origin = 0)
+let intersect(dir: Vector2) : Vector2 option =
+    // Compute the line normal of y0 and y1
+    let d = y1 - y0
+    let n = Vector2(d.Y, -d.X)
+    // Compute the hit distance
+    let t = Vector2.Dot(y0, n) / Vector2.Dot(dir, n)
+    // Check if the point is on the line segment
+    let relPos = Vector2.Dot(t * dir - y0, y1 - y0)
+    if relPos < 0.0f || relPos > (y1 - y0).LengthSquared() || t < 0.0f then
+        None
+    else
+        Some(t * dir)
+
+/// Incident radiance at the point x=0 from a direction
+let Li(dir: Vector2) : float32 =
+    if intersect(dir).IsNone then
+        0.0f
+    else
+        1.0f
+
+#!markdown
+
+## 3.1 Analytic solution (10 points)
+
+Your first task is to analytically compute the value of the integral, to obtain a reference solution.
+
+The $L_i$ in the integrand is either 1 or 0. Hence, we can compute the integral in a two-step process:
+1. determine the bounds of the sub-domain where $L_i=1$,
+2. integrate the cosine of $\theta$ over that sub-domain.
+
+Implement your solution in the code cell below, and add a Markdown cell that explains the intermediate steps of your derivation.
+
+#!markdown
+
+$GT = \int f(\theta)d\theta$ \
+$= \int L_1(\omega)cos\theta d\omega$ \
+$= \int_{-\theta1}^{\theta2} cos\theta d\theta$ \
+$= sin\theta |_{-\theta1}^{\theta2}$ \
+$= sin\theta2 - sin\theta1$ \
+$1/\sqrt2 - (-0.1/\sqrt{4.01})$ \
+$1/\sqrt2 + 0.1/\sqrt{4.01}$
+
+#!fsharp
+
+// let norm = Vector2(0.0f, 1.0f)
+let integrand(x) : float32 = cos(x)
+
+let groundTruth : float32 =
+    // TODO insert code here
+    let sin_thet0 = - 0.1 / Math.Sqrt(4.01) //right cloclwise
+    let sin_thet1 =  1.0 / Math.Sqrt(2.0)  // left anti-clockwise
+    let gt = sin_thet1 - sin_thet0
+    float32(gt)
+groundTruth
+
+#!markdown
+
+## 3.2 Riemann sum (5 points)
+
+Compute the integral via a Riemann sum. $n$ is the number of bins. Make sure that your implementation is approximately equal to the ground truth (at least up to two digits).
+
+#!fsharp
+
+let riemannSum(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let deltaX = 1.0 / float(n) // the stepsize of the Riemann sum
+    let theta_1 = asin(0.1/Math.Sqrt(4.01))
+    let theta_0 = asin(-1.0 / Math.Sqrt(2.0))
+    for x in theta_0+(deltaX / 2.0) .. deltaX .. theta_1 do
+
+            result <- result + float32(integrand(float32(x))) * float32(deltaX)
+    result
+
+riemannSum(1000)
+
+#!markdown
+
+## 3.3 Monte Carlo
+
+### 3.3.1 Uniform sampling (15 points)
+Compute the integral via MC integration using uniform samples, i.e.,
+$$
+p(\omega) \propto 1
+$$
+
+First, compute the correct normalization factor and implement the sampling and pdf functions in the code cell below. Add a Markdown cell that explains the intermediate steps of your derivation.
+
+#!markdown
+
+PDF: $\int p(\omega)d\omega = 1$ \
+$\int_{-\pi/2}^{\pi/2} (c*1) d\theta = 1$ \
+$c [\theta]_{-\pi/2}^{\pi/2} = 1$ \
+$c = 1/\pi$ \
+$p(\omega) = 1/\pi$
+
+CDF inversion: \
+$p(r,\theta) = 1/\pi$ \
+$p(r) = 1/\pi \int_{-\pi/2}^{\pi/2} d\theta = 1$ \
+$p(\theta | r) = p(r,\theta) / p(r) = 1/\pi$ \
+
+CDF: \
+$C(r) = \int_0^r p(r) dr = \int_0^1 dr = 1$ \
+$C(\theta | r) = \int_0^\theta (1/\pi) d\theta = \theta/\pi$
+
+Inversion: \
+$r = 1$ \
+$\theta = \pi * u$ \
+$x = r cos\theta = r cos(\pi*u) = cos(\pi*u)$ \
+$y = sin(\pi*u)$
+
+#!fsharp
+
+let sampleUniform(u: float32) : Vector2 = 
+    // TODO insert code here
+    let r = 1.0//float(u)/2.0 
+    let theta =  Math.PI * float(u)
+    let x = float32(r * Math.Cos(theta))
+    let y =  float32(r * Math.Sin(theta))
+    Vector2(x,y)    
+
+let pdfUniform() : float32 =
+    // TODO insert code here
+    let norma_factor = 1.0/(Math.PI)
+    let pdf_norm = norma_factor * 1.0
+    float32(pdf_norm)
+
+#!markdown
+
+The code cell below can be used to debug your sampling function. It generates and visualizes a set of samples. If the resulting points are evenly spread over the hemicircle, your sampling is correct.
+
+#!fsharp
+
+let num = 200
+[ for _ in 1..num -> 
+    let dir = sampleUniform(rng.NextSingle()) 
+    dir.X, dir.Y
+]
+|> Chart.Point
+|> Chart.withSize(400, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+|> Chart.withYAxis(LayoutObjects.LinearAxis.init(Range=StyleParam.Range.ofMinMax(-0.5, 1.5)))
+|> Chart.withXAxis(LayoutObjects.LinearAxis.init(Range=StyleParam.Range.ofMinMax(-1.1, 1.1)))
+
+#!markdown
+
+Next, use the above sampling functions to implement a Monte Carlo estimator. Make sure your result matches the analytic ground truth.
+
+#!fsharp
+
+let monteCarloUniform(n:int) =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let dir:Vector2 = sampleUniform(rng.NextSingle())
+        let dir_norm = dir / dir.Length()
+        let cos_theta = Vector2.Dot(dir_norm,normal)
+        result <- result + (Li(dir_norm)*cos_theta/pdfUniform()) * float32(numSamples_inv)
+    result
+        
+monteCarloUniform(10000000)
+
+#!markdown
+
+### 3.3.2 Cosine-weighted sampling (10 points)
+
+Uniform sampling is, of course, not the best solution. One option to reduce noise through importance sampling is to use cosine-weighted sampling of the hemicircle. The corresponding PDF is proprotional to the cosine between the surface normal ($=(0,1)$) and the sampled direction:
+$$
+p(\omega) \propto \cos\theta
+$$
+Again, your task is to first derive the correct normalization factor and a corresponding sample mapping that transforms uniform samples to the target density. Explain the intermediate steps in a Markdown cell, and implement the pdf and sampling functions in the code cell below. 
+
+_Hint_: Sampling of this PDF can be achieved in multiple ways. Looking at the cosine-weighted hemisphere sampling discussed in the lecture may be helpful.
+
+#!markdown
+
+PDF: $\int p(\theta)d\theta = 1$ \
+$\int_{-\pi/2}^{\pi/2} (c*cos\theta) d\theta = 1$ \
+$c [sin\theta]_{-\pi/2}^{\pi/2} = 1$ \
+$c = 1/2$ \
+$p(\theta) = 1/2$ \
+Note: $\theta$ = angle between normal at x anf the direction from x
+
+CDF inversion: \
+$p(r,\theta) = 1/2 * cos\theta$ \
+$p(r) = 1/2 \int_{-\pi/2}^{\pi/2} cos\theta d\theta = 1$ \
+$p(\theta | r) = p(r,\theta) / p(r) = 1/2 * cos\theta$ \
+
+CDF: \
+$C(r) = \int_0^r p(r) = r = 1$         (Note: radius of hemisphere = 1) \
+$C(\theta | r) = \int_{-\pi/2}^\theta p(\theta | r ) = (1/2) * \int_{-\pi/2}^\theta cos\theta d\theta = (1/2) * (sin\theta + 1)$
+
+Inversion: \
+$r = 1$ \
+$\theta = sin^{-1}(2u-1)$ \
+$x = 1*sin\theta = sin\theta$ \
+$y = cos\theta$
+
+#!fsharp
+
+let pdfCosWeighted(omega: Vector2) : float32 =
+    // TODO insert code here
+    let normal =  Vector2(0.0f,1.0f) 
+    let norma_factor = float32(0.5) 
+    let pdf_norm = norma_factor * Vector2.Dot(omega,normal)  
+    float32(pdf_norm)
+
+/// Takes uniform u in [0,1] and maps it to a cos-weighted direction
+let sampleCosWeighted(u: float32) : Vector2 =
+    // TODO insert code here
+    
+    let r =  float(u)
+    let theta = Math.Asin(2.0*r-1.0) //Math.Sqrt(float(u))
+
+    let x = float32(Math.Sin(theta))
+    let y = float32(Math.Cos(theta))
+    
+    Vector2(x,y)
+
+#!markdown
+
+The code below debugs your sampling code by testing the resulting distribution via histogram density estimation. If the red and blue lines align, your implementation is correct.
+
+#!fsharp
+
+let numBins = 10
+let histogram = [| for _ in 1..numBins -> 0.0 |] // Array with one number for each bin
+let num = 100000
+
+for i in 1..num do
+    let w = sampleCosWeighted (rng.NextSingle())
+    // Map to the corresponding histogram bin
+    let t = float (atan2 w.Y w.X)
+    let idx = int (t / Math.PI * float numBins)
+    histogram[idx] <- histogram[idx] + 1.0 / float num
+    
+
+let binWidth = Math.PI / float numBins
+let refHistogram = [
+    for i in 1..numBins ->
+        let a = -Math.PI / 2.0 + (float i - 1.0) * binWidth
+        let b = a + binWidth
+        (sin b - sin a) / 2.0
+]
+
+[
+    Chart.Line([for i in 1..numBins -> float i / float numBins], histogram, ShowMarkers=true, Name="actual")
+    Chart.Line([for i in 1..numBins -> float i / float numBins], refHistogram, ShowMarkers=true, Name="reference")
+]
+|> Chart.combine
+|> Chart.withSize(500, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+
+#!markdown
+
+Finally, we can implement the corresponding MC estimator using cosine weighted samples. Reduce the number of arithmetic operations performed by the code as far as you can.
+
+#!fsharp
+
+let monteCarloCos(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let dir:Vector2 = sampleCosWeighted(rng.NextSingle())
+        let dir_norm = Vector2.Normalize(dir)
+        let cos_theta = Vector2.Dot(dir_norm,Vector2.Normalize(normal))
+        result <- result + (Li(dir_norm)*cos_theta/pdfCosWeighted(dir_norm)) * float32(numSamples_inv)
+    result
+monteCarloCos 100000
+
+#!markdown
+
+### 3.3.3 Sampling the emitter (15 points)
+
+The third option is to sample points along the emissive line, and connect them to the shading point.
+For that, we use a uniform line sampling approach
+$$
+p(y) \propto 1
+$$
+Note that this is no longer an angular density. The $p(\omega)$ used before had a unit of $\mathrm{rad}^{-1}$, while $p(y)$ has a unit of $m^{-1}$, as it describes the density _per meter_ along the line.
+
+The domain we are sampling from is the line $\overline{y_0 y_1}$. Hence, $\int_{\overline{y_0 y_1}} p(y) dy = 1$ is satisfied if
+$$
+p(y) = \frac{1}{\lVert y_1 - y_0 \rVert}
+$$
+(Which again shows that the unit of this density is $m^{-1}$, since the length of the line is measured in meters.)
+
+Once more, your first task is to implement the corresponding PDF and sampling functions in the code cell below.
+
+#!fsharp
+
+/// Given a uniform random number, samples a position on the emissive line
+let sampleLine(u:float32) : Vector2 =
+    // TODO insert code here
+    u*y1+(float32(1.0)-u)*y0
+    
+
+/// The PDF of sampling the given position on the line with the above function. Unit: 1/m
+let pdfLine(v:Vector2) : float32 =
+    // TODO insert code here
+    let pdf_line = float32(1.0)/(y0-y1).Length()
+    pdf_line
+
+#!markdown
+
+For the following estimator, you will need another term: the cosine of the angle formed by the normal vector of the emissive line, and the direction from the shading point to a point on the line. The code cell below provides this function for you.
+
+#!fsharp
+
+/// Cosine of the angle between the normal vector of the emissive line, and a direction
+let cosineOnLight(dir: Vector2) : float32 =
+    let d = y1 - y0
+    let n = Vector2(d.Y, -d.X)
+    abs(Vector2.Dot(Vector2.Normalize(dir), Vector2.Normalize(n)))
+
+#!markdown
+
+With these, you can now implement the corresponding MC estimator. 
+
+This time around, it is less obvious than the previous estimators. Since we are sampling a PDF with unit $m^{-1}$, but estimating an integral over the hemicircle measured in radians, the corresponding change of mass has to be accounted for. Either by converting the PDF to a $\mathrm{rad}^{-1}$ density, or by applying a change of variables to change the integration domain to a line integral. Both formulations yield equivalent equations. Check the lecture slides for how to do this!
+
+#!fsharp
+
+let pdf_len_2_rad() : float32 =
+    // TODO insert code here
+    let sin_thet1 = - 0.1 / Math.Sqrt(4.01) //right cloclwise
+    let sin_thet0 =  1.0 / Math.Sqrt(2.0)  // left anti-clockwise
+    let p_w = 1.0/(Math.Asin(sin_thet0) - Math.Asin(sin_thet1))
+    float32(p_w)
+
+#!fsharp
+
+let monteCarloLine(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let dir:Vector2 = sampleLine(rng.NextSingle())
+        let dir_norm = Vector2.Normalize(dir)
+        let cos_theta_x = Vector2.Dot(dir_norm,Vector2.Normalize(normal))
+        let cos_theta_e = cosineOnLight(dir_norm)
+        result <- result + (Li(dir_norm)*cos_theta_x*cos_theta_e/(dir.Length()*pdfLine(dir))) * float32(numSamples_inv)
+    result
+monteCarloLine 10000
+
+#!markdown
+
+### 3.3.4 MIS (10 points)
+Finally, combine the two estimators above using Multiple Importance Sampling. Use $n$ samples from each and weight them with the balance heuristic. That is, compute
+
+$$
+\frac{1}{n}
+\sum_{i=1}^{n} \left(w_c(x_c) \frac{f(x_c)}{p_c(x_c)} + w_l(x_l) \frac{f(x_l)}{p_l(x_l)} \right)
+$$
+
+Where $w_c$ and $w_l$ are the balance heuristic weights.
+
+When computing the balance heuristic, make sure that all involved terms have the same unit of measure. Don't compare apples and oranges. And also don't compare lengths and angles.
+
+#!fsharp
+
+let monteCarloMIS(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let x_first = sampleCosWeighted(rng.NextSingle())
+        let x_first_norm = Vector2.Normalize(x_first)
+        let cos_theta1 = Vector2.Dot(x_first_norm,Vector2.Normalize(normal))
+
+        let x_second = sampleLine(rng.NextSingle())
+        let x_second_norm = Vector2.Normalize(x_second)
+        let cos_theta2_x = Vector2.Dot(x_second_norm,Vector2.Normalize(normal))
+        let cos_theta2_e = cosineOnLight(x_second_norm)
+
+        let w_k_first = (pdfLine(x_first)*float32(numSamples) + pdfCosWeighted(x_first_norm)*float32(numSamples))
+        let w_k_second = (pdfLine(x_second)*float32(numSamples) + pdfCosWeighted(x_second_norm)*float32(numSamples))
+
+        let w_first = (pdfCosWeighted(x_first)*float32(numSamples))/w_k_first
+        let w_second = (pdfLine(x_second)*float32(numSamples))/w_k_second
+        
+        result <- result + (float(Li(x_second_norm)*cos_theta2_x*cos_theta2_e/(x_second.Length()*pdfLine(x_second))) * numSamples_inv * float(w_second)) + (float(Li(x_first_norm)*cos_theta1/pdfCosWeighted(x_first_norm)) * numSamples_inv * float(w_first))
+    
+    float32(result)
+
+monteCarloMIS 100000
+
+#!markdown
+
+### 3.3.5 Variance analysis (5 points)
+
+The following code cell compares the variance of all three estimators when using 100 samples. 
+
+1. In a markdown cell below, explain and interpret the variances as depicted in the column chart. For each technique, briefly justify why it is better or worse than each other technique.
+2. Can you modify the scene configuration in a way that produces a completely different outcome? Copy the relevant code cells from above and re-run the experiment with your updated parameters. Show and analyze the resulting variances.
+
+#!fsharp
+
+let numTrials = 1000
+let mutable uniformVar = 0.0f
+let mutable cosVar = 0.0f
+let mutable lineVar = 0.0f
+let mutable misVar = 0.0f
+for _ in 1..numTrials do
+    uniformVar <- uniformVar + (monteCarloUniform 100 - groundTruth)**2.0f / float32(numTrials)
+    cosVar <- cosVar + (monteCarloCos 100 - groundTruth)**2.0f / float32(numTrials)
+    lineVar <- lineVar + (monteCarloLine 100 - groundTruth)**2.0f / float32(numTrials)
+    misVar <- misVar + (monteCarloMIS 50 - groundTruth)**2.0f / float32(numTrials)
+
+Chart.Column([uniformVar; cosVar; lineVar; misVar], ["uniform"; "cosine"; "line"; "MIS"])
+|> Chart.withSize(500, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+
+#!markdown
+
+Variance will be lower if the density function p(x) can be found similar in shape to the integrand f(x) \
+**Balance_heur**
+1. Performs poorly if some techniques have low variance
+**Uniform**
+1. The samples are chosen at uniform basis over a hemisphere, and it may happen that majority of samples are drawn
+where there is no contribution from the light. Hence the variance is largest among all
+**Cosine**
+1. The cosine weighted sampling has its density function defined along the emitter direction, which is not the case as in 
+uniform sampling where we are sampling uniformly in any direction over the hemi-circle, Hence variance is lower than uniform
+**Emitter Line**
+1. The emmiter sampling is basically sampling  from the emmiter hence we are directly getting the samples from the light to the desired point. There are very less directions to be missed.
+
+#!markdown
+
+Trying out another configuration for the emitter:
+
+#!fsharp
+
+let y0 = Vector2(-1.0f, 1.0f)
+let y1 = Vector2(1.0f, 1.0f)
+
+[
+    // The receiver line and point
+    Chart.Line([-1.0, 0.0; 1.0, 0.0])
+    Chart.Point([0, 0], MultiText=["x"], TextPosition=StyleParam.TextPosition.TopRight)
+
+    // Emitter
+    Chart.Line([y0.X, y0.Y; y1.X, y1.Y], ShowMarkers=true, MultiText=["y0"; "y1"], TextPosition=StyleParam.TextPosition.TopRight)
+
+    // Dashed lines to visualize the cone of incident radiance
+    Chart.Line([y0.X, y0.Y; 0.0f, 0.0f], LineDash=StyleParam.DrawingStyle.Dash, LineColor=Color.fromRGB 150 150 150)
+    Chart.Line([y1.X, y1.Y; 0.0f, 0.0f], LineDash=StyleParam.DrawingStyle.Dash, LineColor=Color.fromRGB 150 150 150)
+]
+|> Chart.combine
+|> Chart.withSize(600, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
+|> Chart.withLegend false
+
+#!fsharp
+
+//Analytical method
+let integrand(x) : float32 = cos(x)
+
+let groundTruth : float32 =
+    // TODO insert code here
+    let sin_thet0 = - 1.0 / Math.Sqrt(2.0) //right cloclwise
+    let sin_thet1 =  1.0 / Math.Sqrt(2.0)  // left anti-clockwise
+    let gt = sin_thet1 - sin_thet0
+    float32(gt)
+groundTruth
+
+#!fsharp
+
+/// Ray-line intersection for our special case (ray origin = 0)
+let intersect(dir: Vector2) : Vector2 option =
+    // Compute the line normal of y0 and y1
+    let d = y1 - y0
+    let n = Vector2(d.Y, -d.X)
+    // Compute the hit distance
+    let t = Vector2.Dot(y0, n) / Vector2.Dot(dir, n)
+    // Check if the point is on the line segment
+    let relPos = Vector2.Dot(t * dir - y0, y1 - y0)
+    if relPos < 0.0f || relPos > (y1 - y0).LengthSquared() || t < 0.0f then
+        None
+    else
+        Some(t * dir)
+
+/// Incident radiance at the point x=0 from a direction
+let Li(dir: Vector2) : float32 =
+    if intersect(dir).IsNone then
+        0.0f
+    else
+        1.0f
+
+#!fsharp
+
+//cos weighted
+
+let monteCarloCos(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let dir:Vector2 = sampleCosWeighted(rng.NextSingle())
+        let dir_norm = Vector2.Normalize(dir)
+        let cos_theta = Vector2.Dot(dir_norm,Vector2.Normalize(normal))
+        result <- result + (Li(dir_norm)*cos_theta/pdfCosWeighted(dir_norm)) * float32(numSamples_inv)
+    result
+monteCarloCos 100000
+
+#!fsharp
+
+//line intersect
+
+/// Given a uniform random number, samples a position on the emissive line
+let sampleLine(u:float32) : Vector2 =
+    // TODO insert code here
+    u*y1+(float32(1.0)-u)*y0
+    
+/// Cosine of the angle between the normal vector of the emissive line, and a direction
+let cosineOnLight(dir: Vector2) : float32 =
+    let d = y1 - y0
+    let n = Vector2(d.Y, -d.X)
+    abs(Vector2.Dot(Vector2.Normalize(dir), Vector2.Normalize(n)))
+
+/// The PDF of sampling the given position on the line with the above function. Unit: 1/m
+let pdfLine(v:Vector2) : float32 =
+    // TODO insert code here
+    let pdf_line = float32(1.0)/(y0-y1).Length()
+    pdf_line
+
+let monteCarloLine(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = float32(0.0)
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let dir:Vector2 = sampleLine(rng.NextSingle())
+        let dir_norm = Vector2.Normalize(dir)
+        let cos_theta_x = Vector2.Dot(dir_norm,Vector2.Normalize(normal))
+        let cos_theta_e = cosineOnLight(dir_norm)
+        result <- result + (Li(dir_norm)*cos_theta_x*cos_theta_e/(dir.Length()*pdfLine(dir))) * float32(numSamples_inv)
+    result
+monteCarloLine 10000
+
+#!fsharp
+
+//MIS
+
+let monteCarloMIS(n:int) : float32 =
+    // TODO insert code here
+    let mutable result = 0.0
+    let numSamples = n
+    let numSamples_inv = 1.0 / float(n)
+    let normal =  Vector2(0.0f,1.0f)  
+    for i in 1 .. numSamples do
+        let x_first = sampleCosWeighted(rng.NextSingle())
+        let x_first_norm = Vector2.Normalize(x_first)
+        let cos_theta1 = Vector2.Dot(x_first_norm,Vector2.Normalize(normal))
+
+        let x_second = sampleLine(rng.NextSingle())
+        let x_second_norm = Vector2.Normalize(x_second)
+        let cos_theta2_x = Vector2.Dot(x_second_norm,Vector2.Normalize(normal))
+        let cos_theta2_e = cosineOnLight(x_second_norm)
+
+        let w_k_first = (pdfLine(x_first)*float32(numSamples) + pdfCosWeighted(x_first_norm)*float32(numSamples))
+        let w_k_second = (pdfLine(x_second)*float32(numSamples) + pdfCosWeighted(x_second_norm)*float32(numSamples))
+
+        let w_first = (pdfCosWeighted(x_first)*float32(numSamples))/w_k_first
+        let w_second = (pdfLine(x_second)*float32(numSamples))/w_k_second
+        
+        result <- result + (float(Li(x_second_norm)*cos_theta2_x*cos_theta2_e/(x_second.Length()*pdfLine(x_second))) * numSamples_inv * float(w_second)) + (float(Li(x_first_norm)*cos_theta1/pdfCosWeighted(x_first_norm)) * numSamples_inv * float(w_first))
+    
+    float32(result)
+
+monteCarloMIS 100000
+
+#!fsharp
+
+let numTrials = 1000
+let mutable cosVar = 0.0f
+let mutable lineVar = 0.0f
+let mutable misVar = 0.0f
+for _ in 1..numTrials do
+    cosVar <- cosVar + (monteCarloCos 100 - groundTruth)**2.0f / float32(numTrials)
+    lineVar <- lineVar + (monteCarloLine 100 - groundTruth)**2.0f / float32(numTrials)
+    misVar <- misVar + (monteCarloMIS 50 - groundTruth)**2.0f / float32(numTrials)
+
+Chart.Column([cosVar; lineVar; misVar], ["cosine"; "line"; "MIS"])
+|> Chart.withSize(500, 400)
+|> Chart.withMarginSize(0, 0, 0, 0)
