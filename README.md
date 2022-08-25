@@ -32,4 +32,4 @@ or use MIS to combine direct illumination with randomly hitting the light. <br/>
 Surfaces | PM | MIS
 :-----: | :----: | :-----:
 Water(100 spp)   | <img src="imgs/PM/Density_estimation_7.3(fig1)/cornel_box_water_100spp.png" width="300"/>  | <img src="imgs/PM/with_glossy_improved_7.5(fig3)/cornel_box_water_improved_100spp.png" width="300"/>
-Specular(100 spp)  | <img src="imgs/PM/Density_estimation_7.3(fig1)/cornel_box_specular_100spp.png" width="300"/>  | 
+Specular(100 spp)  | <img src="imgs/PM/Density_estimation_7.3(fig1)/cornel_box_specular_100spp.png" width="300"/>  | same as no glossy surfaces
