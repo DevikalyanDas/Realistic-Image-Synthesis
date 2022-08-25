@@ -43,6 +43,6 @@ Here, we have computed HDR of two images using multi image exposure technique an
 Operators | Day Image | Night Image
 :-----: | :----: | :-----:
 Drago   | <img src="imgs/HDR_and_TM/daytime/drago/TMO_DragoTMO_dLdMax120_db0.65.png" width="300"/>  | <img src="imgs/HDR_and_TM/nighttime/drago/TMO_DragoTMO_dLdMax80_db0.65.png" width="300"/>
-Durand  | <img src="imgs/HDR_and_TM/nighttime/durand/TMO_Durand_contrast7.png" width="300"/>  | <img src="imgs/HDR_and_TM/nighttime/durand/TMO_Durand_contrast7.png" width="300"/>
+Durand  | <img src="imgs/HDR_and_TM/daytime/durand/TMO_Durand_contrast7.png" width="300"/>  | <img src="imgs/HDR_and_TM/nighttime/durand/TMO_Durand_contrast7.png" width="300"/>
 Logarithmic   | <img src="imgs/HDR_and_TM/daytime/logarithmic/TMO_Logarithmic_logQ0.5_logK0.5.png" width="300"/>  | <img src="imgs/HDR_and_TM/nighttime/logarithmic/TMO_Logarithmic_logQ0.5_logK0.5.png" width="300"/>
 Reinhard  | <img src="imgs/HDR_and_TM/daytime/reinhard/Bottles_Small_TMO_Reinhard_palpha0.18_pwhite2.5_local.png" width="300"/>  | <img src="imgs/HDR_and_TM/nighttime/reinhard/Bottles_Small_TMO_Reinhard_palpha0.18_pwhite2.5_local.png" width="300"/>
