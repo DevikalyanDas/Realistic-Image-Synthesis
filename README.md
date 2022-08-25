@@ -13,12 +13,15 @@ Combination of **direect lighting** and **path tracing**.<br/>
 **Path Tracing** : Collect the throughput as ray bounces off. <br/>
 MIS(Multiple Importance sampling): Combine the NEE with path tracing more effectively as NEE converge faster for some lighting conditions.<br/>
 
+PS: All the random sampled paths have been terminated using ***Russian Roulette***.
+
 Surfaces | NEE | MIS
 :-----: | :----: | :-----:
 Glossy(10 spp)   | <img src="imgs/NEE/NEE/NEE_cornel_box_glossy_10spp.png" width="300"/> | <img src="imgs/NEE/MIS/MIS_cornel_box_glossy_10spp.png" width="300"/>
 Diffuse(10 spp)  | <img src="imgs/NEE/NEE/NEE_cornel_box_10spp.png" width="300"/>  | <img src="imgs/NEE/MIS/MIS_cornel_box_10spp.png" width="300"/>
 Water(200 spp)   | <img src="imgs/NEE/NEE/NEE_cornel_box_water.png" width="300"/>  | <img src="imgs/NEE/MIS/MIS_cornel_box_water_200spp.png" width="300"/>
 
+PS: All the random sampled paths have been terminated using ***Russian Roulette***.
 
 ## 4. Photon Mapping and Density Estimation <br/>
 Combination of **photon tracing** and **Density estimation**.<br/>
@@ -27,7 +30,7 @@ Combination of **photon tracing** and **Density estimation**.<br/>
 **Direct Lighting with PM** : Glossy materials don't work well. Hence, to improve efficiency of progressive photon mapping in the presence of glossy materials is
 to not do density estimation on glossy materials either. Instead, compute the direct illumination at a glossy hit point, and bounce, as you would do in path tracing. Keep in mind that you will have to either ignore hitting the light source after a glossy bounce,
 or use MIS to combine direct illumination with randomly hitting the light. <br/>
-
+PS: All the random sampled paths have been terminated using ***Russian Roulette***.
 Surfaces | PM | MIS
 :-----: | :----: | :-----:
 Water(100 spp)   | <img src="imgs/PM/Density_estimation_7.3(fig1)/cornel_box_water_100spp.png" width="300"/>  | <img src="imgs/PM/with_glossy_improved_7.5(fig3)/cornel_box_water_improved_100spp.png" width="300"/>
